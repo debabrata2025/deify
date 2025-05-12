@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hindi Music Player</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #111827;
+      color: #ffffff;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      overscroll-behavior: none; /* Prevent pull-to-refresh */
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      background-color: #111827;
+      padding: 20px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      max-width: 800px;
+      margin: 0 auto;
+      transition: all 0.3s ease;
+    }
+    .header.fullscreen {
+      background-color: #1f2937;
+      height: 100vh;
+      max-width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overscroll-behavior: none; /* Extra layer to prevent pull-to-refresh */
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 20px;
+    }
+    .header.fullscreen h1 {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      margin-bottom: 0;
+    }
+    .current-track {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .header.fullscreen .current-track {
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .current-track img {
+      width: 64px;
+      height: 64px;
+      margin-right: 15px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .header.fullscreen .current-track img {
+      width: 200px;
+      height: 200px;
+      margin: 0 auto 20px;
+      display: block;
+    }
+    .header.fullscreen .current-track div {
+      text-align: center;
+    }
+    .controls {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .header.fullscreen .controls {
+      justify-content: center;
+    }
+    .control-btn {
+      background-color: #4b5563;
+      color: #ffffff;
+      padding: 8px 15px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .control-btn:hover {
+      background-color: #6b7280;
+    }
+    .play-btn {
+      background-color: #22c55e;
+    }
+    .play-btn:hover {
+      background-color: #16a34a;
+    }
+    .volume-control {
+      margin-bottom: 20px;
+    }
+    .header.fullscreen .volume-control {
+      width: 50%;
+      text-align: center;
+    }
+    .volume-control label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    .volume-control input {
+      width: 100%;
+    }
+    .progress-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .header.fullscreen .progress-bar {
+      width: 70%;
+      justify-content: center;
+    }
+    .progress-bar input[type="range"] {
+      flex-grow: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      background: #4b5563;
+      outline: none;
+      border-radius: 2px;
+      cursor: pointer;
+    }
+    .progress-bar input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      background: #22c55e;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .progress-bar input[type="range"]::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      background: #22c55e;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .progress-bar span {
+      font-size: 14px;
+      color: #b3b3b3;
+    }
+    .scrollable-playlist {
+      margin-top: 260px;
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: 20px;
+      transition: opacity 0.3s ease;
+    }
+    .scrollable-playlist.hidden {
+      opacity: 0;
+      pointer-events: none;
+      height: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    h2 {
+      font-size: 1.5rem;
+      margin-bottom: 15px;
+    }
+    .track-list {
+      list-style: none;
+      padding: 0;
+    }
+    .track-item {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .track-item:hover {
+      background-color: #1f2937;
+    }
+    .track-item img {
+      width: 48px;
+      height: 48px;
+    }
+    .error {
+      color: #ef4444;
+      margin-bottom: 20px;
+    }
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #b3b3b3;
+    }
+    /* Responsive Design */
+    @media (max-width: 600px) {
+      .header {
+        padding: 10px;
+      }
+      .header.fullscreen {
+        padding: 10px;
+      }
+      h1 {
+        font-size: 1.5rem;
+      }
+      .header.fullscreen h1 {
+        top: 10px;
+        left: 10px;
+      }
+      .current-track img {
+        width: 48px;
+        height: 48px;
+      }
+      .header.fullscreen .current-track img {
+        width: 150px;
+        height: 150px;
+      }
+      .scrollable-playlist {
+        margin-top: 220px;
+        padding: 10px;
+      }
+      h2 {
+        font-size: 1.2rem;
+      }
+      .track-item img {
+        width: 40px;
+        height: 40px;
+      }
+      .track-item {
+        padding: 8px;
+      }
+      .controls {
+        gap: 10px;
+      }
+      .control-btn {
+        padding: 6px 12px;
+        font-size: 14px;
+      }
+      .progress-bar span {
+        font-size: 12px;
+      }
+      .progress-bar input[type="range"] {
+        height: 3px;
+      }
+      .progress-bar input[type="range"]::-webkit-slider-thumb {
+        width: 10px;
+        height: 10px;
+      }
+      .progress-bar input[type="range"]::-moz-range-thumb {
+        width: 10px;
+        height: 10px;
+      }
+      .header.fullscreen .progress-bar {
+        width: 90%;
+      }
+      .header.fullscreen .volume-control {
+        width: 80%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header" id="header">
+      <h1>Deify</h1>
+      <div id="error" class="error" style="display: none;"></div>
+      <div id="current-track" class="current-track"></div>
+      <audio id="audio-player"></audio>
+      <div class="controls">
+        <button id="prev-btn" class="control-btn">Previous</button>
+        <button id="play-btn" class="control-btn play-btn">Play</button>
+        <button id="next-btn" class="control-btn">Next</button>
+      </div>
+      <div class="progress-bar">
+        <span id="current-time">0:00</span>
+        <input type="range" id="progress" min="0" max="100" value="0">
+        <span id="total-time">0:00</span>
+      </div>
+      <div class="volume-control">
+        <label for="volume">Volume: <span id="volume-value">50</span>%</label>
+        <input type="range" id="volume" min="0" max="100" value="50">
+      </div>
+    </div>
+    <div class="scrollable-playlist" id="playlist">
+      <h2>Playlist</h2>
+      <ul id="track-list" class="track-list"></ul>
+      <div id="loading" class="loading" style="display: none;">Loading...</div>
+    </div>
+  </div>
+  <script>
+    const audioPlayer = document.getElementById('audio-player');
+    const header = document.getElementById('header');
+    const scrollablePlaylist = document.getElementById('playlist');
+    const progressBar = document.getElementById('progress');
+    const currentTimeDisplay = document.getElementById('current-time');
+    const totalTimeDisplay = document.getElementById('total-time');
+    let tracks = [];
+    let currentTrackIndex = 0;
+    let isPlaying = false;
+    let page = 1;
+    let isFetching = false;
+    let isFullscreen = false;
+    let isDragging = false;
+    let startY = 0;
+    let currentY = 0;
+
+    // Show Error Message
+    function showError(message) {
+      const errorDiv = document.getElementById('error');
+      errorDiv.textContent = message;
+      errorDiv.style.display = 'block';
+    }
+
+    // Format Time (MM:SS)
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
+    // Toggle Fullscreen Mode
+    function toggleFullscreen() {
+      isFullscreen = !isFullscreen;
+      if (isFullscreen) {
+        header.classList.add('fullscreen');
+        scrollablePlaylist.classList.add('hidden');
+      } else {
+        header.classList.remove('fullscreen');
+        scrollablePlaylist.classList.remove('hidden');
+      }
+    }
+
+    // Handle Drag Start
+    function handleDragStart(e) {
+      if (!isFullscreen) return;
+      isDragging = true;
+      startY = e.type === 'mousedown' ? e.clientY : e.touches[0].clientY;
+      currentY = startY;
+      // Prevent default touch behavior to block pull-to-refresh
+      if (e.type === 'touchstart') {
+        e.preventDefault();
+      }
+    }
+
+    // Handle Drag Move
+    function handleDragMove(e) {
+      if (!isDragging) return;
+      currentY = e.type === 'mousemove' ? e.clientY : e.touches[0].clientY;
+      const deltaY = currentY - startY;
+      if (deltaY > 0) {
+        header.style.transform = `translateY(${deltaY}px)`;
+      }
+      // Prevent default touch behavior to block pull-to-refresh
+      if (e.type === 'touchmove') {
+        e.preventDefault();
+      }
+    }
+
+    // Handle Drag End
+    function handleDragEnd(e) {
+      if (!isDragging) return;
+      isDragging = false;
+      header.style.transform = '';
+      const deltaY = currentY - startY;
+      if (deltaY > 100) {
+        toggleFullscreen();
+      }
+      // Prevent default touch behavior to block pull-to-refresh
+      if (e.type === 'touchend') {
+        e.preventDefault();
+      }
+    }
+
+    // Fetch Hindi Songs from JioSaavn
+    function fetchSongs(pageNum) {
+      if (isFetching) return;
+      isFetching = true;
+      document.getElementById('loading').style.display = 'block';
+      fetch(`https://saavn.dev/api/search/songs?query=hindi&limit=20&page=${pageNum}`)
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`API request failed with status ${res.status}`);
+          }
+          return res.json();
+        })
+        .then(data => {
+          document.getElementById('loading').style.display = 'none';
+          isFetching = false;
+          if (data.success && data.data.results) {
+            const newTracks = data.data.results.map(song => ({
+              id: song.id,
+              title: song.name,
+              artist: song.primaryArtists,
+              img: song.image[2]?.url || 'https://via.placeholder.com/64',
+              url: song.downloadUrl[4]?.url || song.downloadUrl[song.downloadUrl.length - 1]?.url
+            }));
+            tracks = [...tracks, ...newTracks];
+            displayTracks();
+            if (pageNum === 1 && tracks.length > 0) {
+              updateCurrentTrack(tracks[0]);
+            }
+          } else {
+            showError('No more songs found.');
+          }
+        })
+        .catch(err => {
+          document.getElementById('loading').style.display = 'none';
+          isFetching = false;
+          console.error('Error fetching songs:', err);
+          showError('Failed to load songs. Please check your connection or try again later.');
+        });
+    }
+
+    // Display Tracks
+    function displayTracks() {
+      const trackList = document.getElementById('track-list');
+      trackList.innerHTML = '';
+      tracks.forEach((track, index) => {
+        const li = document.createElement('li');
+        li.className = 'track-item';
+        li.innerHTML = `
+          <img src="${track.img}" alt="Album Art">
+          <div>
+            <p style="font-weight: bold;">${track.title}</p>
+            <p>${track.artist}</p>
+          </div>
+        `;
+        li.addEventListener('click', () => playTrack(index));
+        trackList.appendChild(li);
+      });
+    }
+
+    // Update Current Track Display
+    function updateCurrentTrack(track) {
+      const currentTrack = document.getElementById('current-track');
+      currentTrack.innerHTML = `
+        <img src="${track.img}" alt="Album Art" id="current-track-img">
+        <div>
+          <p style="font-weight: bold;">${track.title}</p>
+          <p>${track.artist}</p>
+        </div>
+      `;
+      const trackImg = document.getElementById('current-track-img');
+      trackImg.addEventListener('click', toggleFullscreen);
+      trackImg.addEventListener('mousedown', handleDragStart);
+      trackImg.addEventListener('mousemove', handleDragMove);
+      trackImg.addEventListener('mouseup', handleDragEnd);
+      trackImg.addEventListener('mouseleave', handleDragEnd);
+      trackImg.addEventListener('touchstart', handleDragStart);
+      trackImg.addEventListener('touchmove', handleDragMove);
+      trackImg.addEventListener('touchend', handleDragEnd);
+    }
+
+    // Play Track
+    function playTrack(index) {
+      if (index < 0 || index >= tracks.length) return;
+      currentTrackIndex = index;
+      const track = tracks[currentTrackIndex];
+      audioPlayer.src = track.url;
+      audioPlayer.play().then(() => {
+        isPlaying = true;
+        document.getElementById('play-btn').textContent = 'Pause';
+        updateCurrentTrack(track);
+        audioPlayer.onloadedmetadata = () => {
+          progressBar.max = audioPlayer.duration;
+          totalTimeDisplay.textContent = formatTime(audioPlayer.duration);
+        };
+      }).catch(err => {
+        console.error('Error playing track:', err);
+        showError('Failed to play track. Try another song.');
+      });
+    }
+
+    // Toggle Play/Pause
+    function togglePlay() {
+      if (isPlaying) {
+        audioPlayer.pause();
+        isPlaying = false;
+        document.getElementById('play-btn').textContent = 'Play';
+      } else {
+        audioPlayer.play().then(() => {
+          isPlaying = true;
+          document.getElementById('play-btn').textContent = 'Pause';
+        }).catch(err => {
+          console.error('Error playing:', err);
+          showError('Failed to play. Try another song.');
+        });
+      }
+    }
+
+    // Next Track
+    function nextTrack() {
+      if (currentTrackIndex < tracks.length - 1) {
+        playTrack(currentTrackIndex + 1);
+      }
+    }
+
+    // Previous Track
+    function previousTrack() {
+      if (currentTrackIndex > 0) {
+        playTrack(currentTrackIndex - 1);
+      }
+    }
+
+    // Change Volume
+    function changeVolume() {
+      const volume = document.getElementById('volume').value;
+      document.getElementById('volume-value').textContent = volume;
+      audioPlayer.volume = volume / 100;
+    }
+
+    // Update Progress Bar
+    audioPlayer.addEventListener('timeupdate', () => {
+      if (!isNaN(audioPlayer.duration)) {
+        progressBar.value = audioPlayer.currentTime;
+        currentTimeDisplay.textContent = formatTime(audioPlayer.currentTime);
+      }
+    });
+
+    // Seek to Position
+    progressBar.addEventListener('input', () => {
+      audioPlayer.currentTime = progressBar.value;
+    });
+
+    // Infinite Scroll within Playlist
+    scrollablePlaylist.addEventListener('scroll', () => {
+      if (isFetching) return;
+      const { scrollTop, scrollHeight, clientHeight } = scrollablePlaylist;
+      if (scrollTop + clientHeight >= scrollHeight - 50) {
+        page++;
+        fetchSongs(page);
+      }
+    });
+
+    // Event Listeners
+    document.getElementById('play-btn').addEventListener('click', togglePlay);
+    document.getElementById('next-btn').addEventListener('click', nextTrack);
+    document.getElementById('prev-btn').addEventListener('click', previousTrack);
+    document.getElementById('volume').addEventListener('input', changeVolume);
+
+    // Auto-play next track when current ends
+    audioPlayer.addEventListener('ended', nextTrack);
+
+    // Fetch initial songs
+    fetchSongs(page);
+  </script>
+</body>
+</html>
