@@ -17,7 +17,7 @@
       margin: 0;
       padding: 0;
       overflow-x: hidden;
-      overscroll-behavior: none; /* Prevent pull-to-refresh */
+      overscroll-behavior: none;
     }
     .container {
       max-width: 800px;
@@ -48,7 +48,7 @@
       align-items: center;
       justify-content: center;
       padding: 20px;
-      overscroll-behavior: none; /* Extra layer to prevent pull-to-refresh */
+      overscroll-behavior: none;
     }
     h1 {
       font-size: 2rem;
@@ -355,7 +355,6 @@
       isDragging = true;
       startY = e.type === 'mousedown' ? e.clientY : e.touches[0].clientY;
       currentY = startY;
-      // Prevent default touch behavior to block pull-to-refresh
       if (e.type === 'touchstart') {
         e.preventDefault();
       }
@@ -369,7 +368,6 @@
       if (deltaY > 0) {
         header.style.transform = `translateY(${deltaY}px)`;
       }
-      // Prevent default touch behavior to block pull-to-refresh
       if (e.type === 'touchmove') {
         e.preventDefault();
       }
@@ -384,50 +382,61 @@
       if (deltaY > 100) {
         toggleFullscreen();
       }
-      // Prevent default touch behavior to block pull-to-refresh
       if (e.type === 'touchend') {
         e.preventDefault();
       }
     }
 
     // Fetch Hindi Songs from JioSaavn
-    function fetchSongs(pageNum) {
+    async function fetchSongs(pageNum, retries = 2) {
       if (isFetching) return;
       isFetching = true;
       document.getElementById('loading').style.display = 'block';
-      fetch(`https://saavn.dev/api/search/songs?query=hindi&limit=20&page=${pageNum}`)
-        .then(res => {
-          if (!res.ok) {
-            throw new Error(`API request failed with status ${res.status}`);
+      try {
+        const response = await fetch(`https://saavn.dev/api/search/songs?query=hindi&limit=20&page=${pageNum}`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
           }
-          return res.json();
-        })
-        .then(data => {
-          document.getElementById('loading').style.display = 'none';
-          isFetching = false;
-          if (data.success && data.data.results) {
-            const newTracks = data.data.results.map(song => ({
-              id: song.id,
-              title: song.name,
-              artist: song.primaryArtists,
-              img: song.image[2]?.url || 'https://via.placeholder.com/64',
-              url: song.downloadUrl[4]?.url || song.downloadUrl[song.downloadUrl.length - 1]?.url
-            }));
-            tracks = [...tracks, ...newTracks];
-            displayTracks();
-            if (pageNum === 1 && tracks.length > 0) {
-              updateCurrentTrack(tracks[0]);
-            }
-          } else {
-            showError('No more songs found.');
-          }
-        })
-        .catch(err => {
-          document.getElementById('loading').style.display = 'none';
-          isFetching = false;
-          console.error('Error fetching songs:', err);
-          showError('Failed to load songs. Please check your connection or try again later.');
         });
+        if (!response.ok) {
+          if (response.status === 429 && retries > 0) {
+            // Retry after a delay if rate-limited
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return fetchSongs(pageNum, retries - 1);
+          }
+          throw new Error(`API request failed with status ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        document.getElementById('loading').style.display = 'none';
+        isFetching = false;
+        if (data.success && data.data.results) {
+          const newTracks = data.data.results.map(song => ({
+            id: song.id,
+            title: song.name,
+            artist: song.primaryArtists,
+            img: song.image[2]?.url || 'https://via.placeholder.com/64',
+            url: song.downloadUrl[4]?.url || song.downloadUrl[song.downloadUrl.length - 1]?.url
+          }));
+          tracks = [...tracks, ...newTracks];
+          displayTracks();
+          if (pageNum === 1 && tracks.length > 0) {
+            updateCurrentTrack(tracks[0]);
+          }
+        } else {
+          showError('No songs found. Try again later.');
+        }
+      } catch (err) {
+        document.getElementById('loading').style.display = 'none';
+        isFetching = false;
+        console.error('Error fetching songs:', err);
+        if (retries > 0) {
+          // Retry after a delay
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return fetchSongs(pageNum, retries - 1);
+        }
+        showError(`Failed to load songs: ${err.message}. Please check your connection or try again later.`);
+      }
     }
 
     // Display Tracks
@@ -475,7 +484,9 @@
       if (index < 0 || index >= tracks.length) return;
       currentTrackIndex = index;
       const track = tracks[currentTrackIndex];
-      audioPlayer.src = track.url;
+      const originalUrl = track.url;
+      const proxiedUrl = originalUrl.replace('http://h.saavncdn.com', '/api/audio');
+      audioPlayer.src = proxiedUrl;
       audioPlayer.play().then(() => {
         isPlaying = true;
         document.getElementById('play-btn').textContent = 'Pause';
